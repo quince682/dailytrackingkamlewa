@@ -57,6 +57,28 @@ export async function getAllLogsForDate(date: string) {
   return data ?? [];
 }
 
+export async function getLogsByRange(
+  startDate: string,
+  endDate: string,
+  userId?: string
+) {
+  const sb = getSupabase();
+  let query = sb
+    .from("daily_logs")
+    .select("*")
+    .gte("date", startDate)
+    .lte("date", endDate)
+    .order("date", { ascending: true })
+    .order("user_id", { ascending: true });
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  }
+
+  const { data } = await query;
+  return data ?? [];
+}
+
 export async function checkIn(userId: string, date: string, time: string) {
   const sb = getSupabase();
   const { data } = await sb.rpc("check_in", {

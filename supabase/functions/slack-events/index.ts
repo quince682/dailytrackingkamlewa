@@ -1,3 +1,5 @@
+// supabase/functions/slack-events/index.ts
+
 import { verifySlackRequest, publishHome } from "../_shared/slack.ts";
 import { buildHomeTab } from "../_shared/home.ts";
 
@@ -12,18 +14,25 @@ Deno.serve(async (req: Request) => {
   }
 
   const body = await req.text();
-  const payload = JSON.parse(body);
+  let payload;
+
+  try {
+    payload = JSON.parse(body);
+  } catch (err) {
+    console.error("Invalid JSON:", err);
+    return new Response("Bad Request", { status: 400 });
+  }
 
   // ──── Handle URL Verification Challenge ────
   // Slack sends this when you first set the Events URL
   if (payload.type === "url_verification") {
-    return new Response(JSON.stringify({ challenge: payload.challenge }), {
+    return new Response(payload.challenge, {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
     });
   }
 
-  // Verify request signature
+  // ──── Verify Slack Request Signature ────
   const valid = await verifySlackRequest(req, body);
   if (!valid) {
     return new Response("Invalid signature", { status: 401 });
@@ -32,7 +41,7 @@ Deno.serve(async (req: Request) => {
   try {
     const event = payload.event;
 
-    // ──── app_home_opened ────
+    // ──── Handle app_home_opened ────
     if (event?.type === "app_home_opened" && event?.tab === "home") {
       const userId = event.user;
       const homeView = await buildHomeTab(userId);

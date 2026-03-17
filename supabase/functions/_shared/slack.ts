@@ -86,6 +86,29 @@ export async function respond(responseUrl: string, payload: Record<string, unkno
   });
 }
 
+export async function uploadFile(
+  channel: string,
+  filename: string,
+  content: string,
+  initialComment?: string
+) {
+  const form = new FormData();
+  form.append("channels", channel);
+  form.append("filename", filename);
+  form.append("file", new Blob([content], { type: "text/csv" }), filename);
+  if (initialComment) form.append("initial_comment", initialComment);
+
+  const res = await fetch(`${SLACK_API}/files.upload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${botToken()}`,
+    },
+    body: form,
+  });
+
+  return res.json();
+}
+
 // ──────────────────────────────────────────
 // Time helpers
 // ──────────────────────────────────────────

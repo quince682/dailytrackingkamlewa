@@ -1,0 +1,30 @@
+{
+  "name": "dailytrackingkamlewa",
+  "version": "1.0.0",
+  "description": "A **fully serverless** Slack bot for daily check-ins, task planning (Pre-CAP & Post-CAP), task completion, and manager reports — powered by **Supabase Edge Functions** and **PostgreSQL**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quince682/dailytrackingkamlewa.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/quince682/dailytrackingkamlewa/issues"
+  },
+  "homepage": "https://github.com/quince682/dailytrackingkamlewa#readme",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.6.0",
+    "express": "^5.2.1"
+  }
+}
