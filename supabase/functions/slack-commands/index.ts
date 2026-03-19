@@ -10,6 +10,7 @@ serve(async (req: Request) => {
   const command = payload.get("command")?.toString();
   const userId = payload.get("user_id")?.toString() || "";
   const triggerId = payload.get("trigger_id")?.toString() || "";
+  const channelId = payload.get("channel_id")?.toString() || "";
 
   const today = getToday();
 
@@ -19,7 +20,26 @@ serve(async (req: Request) => {
       headers: { "Content-Type": "application/json" },
     });
 
-  // Helper to open a modal asynchronously (with a timeout guard)
+  // Helper to send ephemeral messages to a user
+  const postMessage = async (user: string, text: string) => {
+    const res = await fetch("https://slack.com/api/chat.postEphemeral", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SLACK_BOT_TOKEN")}`,
+      },
+      body: JSON.stringify({
+        channel: channelId,
+        user,
+        text,
+      }),
+    });
+    const json = await res.json();
+    console.log("chat.postEphemeral response:", json);
+    return json;
+  };
+
+  // Helper to open a modal asynchronously
   const openModal = async (view: any) => {
     const res = await fetch("https://slack.com/api/views.open", {
       method: "POST",
@@ -38,26 +58,19 @@ serve(async (req: Request) => {
     return json;
   };
 
-  const openModalWithTimeout = async (view: any, ms = 2000) => {
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("openModal timeout")), ms)
-    );
-
-    return Promise.race([openModal(view), timeout]);
-  };
-
   switch (command) {
     case "/checkin": {
       try {
         await checkIn(userId, today, getCurrentTime());
-        await openModalWithTimeout(preCapModal(await getLog(userId, today)), 2000);
+        const log = await getLog(userId, today);
+        const res = await openModal(preCapModal(log));
+        if (!res.ok) {
+          return respond({ response_type: "ephemeral", text: `⚠️ Could not open check-in modal: ${res.error}` });
+        }
         return new Response("", { status: 200 });
       } catch (err) {
-        console.error("Error opening check-in modal:", err);
-        return respond({
-          response_type: "ephemeral",
-          text: "⚠️ Could not open the check-in modal right now. Please try again.",
-        });
+        console.error("Error in /checkin:", err);
+        return respond({ response_type: "ephemeral", text: "⚠️ Could not open the check-in modal right now. Please try again." });
       }
     }
 
@@ -71,28 +84,22 @@ serve(async (req: Request) => {
       return respond({ response_type: "ephemeral", text });
     }
 
-    case "/checkout":
-    case "/complete": {
+    case "/checkout": {
       try {
         const existingLog = await getLog(userId, today);
         if (!existingLog) {
-          return respond({
-            response_type: "ephemeral",
-            text: "⚠️ You need to check in first (use /checkin) before checking out.",
-          });
+          return respond({ response_type: "ephemeral", text: "⚠️ You need to check in first (use /checkin) before checking out." });
         }
 
-        await openModalWithTimeout(postCapModal(existingLog), 2000);
-        return respond({
-          response_type: "ephemeral",
-          text: "Checkout modal opened.",
-        });
+        const modalPayload = postCapModal(existingLog);
+        const res = await openModal(modalPayload);
+        if (!res.ok) {
+          return respond({ response_type: "ephemeral", text: `⚠️ Could not open the checkout modal: ${res.error}` });
+        }
+        return new Response("", { status: 200 });
       } catch (err) {
-        console.error("Failed to open checkout modal:", err);
-        return respond({
-          response_type: "ephemeral",
-          text: "⚠️ Could not open the checkout modal right now. Please try again.",
-        });
+        console.error("Error in /checkout:", err);
+        return respond({ response_type: "ephemeral", text: "⚠️ Could not open the checkout modal right now. Please try again." });
       }
     }
 

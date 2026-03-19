@@ -1,13 +1,14 @@
 ﻿// Modal definitions for Slack interactions
 
 export function preCapModal(existingLog?: any) {
-  const preCapValue = existingLog?.pre_cap_tasks?.join("\n") || "";
+  const preCapValue = (existingLog?.pre_cap_tasks?.join("\n") || "").substring(0, 3000);
 
   return {
     type: "modal",
     callback_id: "precap_submit",
-    title: { type: "plain_text", text: "Check In — Pre‑CAP Tasks" },
+    title: { type: "plain_text", text: "Check In — Pre‑CAP" },
     submit: { type: "plain_text", text: "Save" },
+    close: { type: "plain_text", text: "Cancel" },
     blocks: [
       {
         type: "section",
@@ -23,7 +24,10 @@ export function preCapModal(existingLog?: any) {
           type: "plain_text_input",
           action_id: "pre_cap_input",
           multiline: true,
-          placeholder: { type: "plain_text", text: "e.g. Fix bug #123\nReview PRs\nWrite docs" },
+          placeholder: {
+            type: "plain_text",
+            text: "e.g. Fix bug #123\nReview PRs\nWrite docs"
+          },
           initial_value: preCapValue,
         },
         label: { type: "plain_text", text: "Pre‑CAP Tasks" },
@@ -33,13 +37,14 @@ export function preCapModal(existingLog?: any) {
 }
 
 export function postCapModal(existingLog?: any) {
-  const completedValue = (existingLog?.completed_tasks ?? []).join("\n") || "";
+  const completedValue = ((existingLog?.completed_tasks ?? []).join("\n") || "").substring(0, 3000);
 
   return {
     type: "modal",
     callback_id: "postcap_submit",
-    title: { type: "plain_text", text: "Check Out — Post‑CAP Tasks" },
+    title: { type: "plain_text", text: "Check Out — Post‑CAP" },
     submit: { type: "plain_text", text: "Save" },
+    close: { type: "plain_text", text: "Cancel" },
     blocks: [
       {
         type: "section",
@@ -55,7 +60,10 @@ export function postCapModal(existingLog?: any) {
           type: "plain_text_input",
           action_id: "post_cap_input",
           multiline: true,
-          placeholder: { type: "plain_text", text: "e.g. Released feature X\nFixed login bug" },
+          placeholder: {
+            type: "plain_text",
+            text: "e.g. Released feature X\nFixed login bug"
+          },
           initial_value: completedValue,
         },
         label: { type: "plain_text", text: "Post‑CAP Tasks" },
@@ -65,11 +73,14 @@ export function postCapModal(existingLog?: any) {
 }
 
 export function managerReportModal() {
+  const today = new Date().toISOString().split("T")[0];
+
   return {
     type: "modal",
     callback_id: "manager_report_submit",
     title: { type: "plain_text", text: "Team Report" },
     submit: { type: "plain_text", text: "Generate" },
+    close: { type: "plain_text", text: "Cancel" },
     blocks: [
       {
         type: "section",
@@ -85,7 +96,10 @@ export function managerReportModal() {
         element: {
           type: "users_select",
           action_id: "user_select_input",
-          placeholder: { type: "plain_text", text: "Pick a user (leave empty for all)" }
+          placeholder: {
+            type: "plain_text",
+            text: "Pick a user (leave empty for all)"
+          }
         },
         label: { type: "plain_text", text: "User" }
       },
@@ -95,7 +109,7 @@ export function managerReportModal() {
         element: {
           type: "datepicker",
           action_id: "start_date_input",
-          initial_date: new Date().toISOString().split('T')[0]
+          initial_date: today
         },
         label: { type: "plain_text", text: "Start Date" }
       },
@@ -105,7 +119,7 @@ export function managerReportModal() {
         element: {
           type: "datepicker",
           action_id: "end_date_input",
-          initial_date: new Date().toISOString().split('T')[0]
+          initial_date: today
         },
         label: { type: "plain_text", text: "End Date" }
       },
@@ -116,7 +130,10 @@ export function managerReportModal() {
         element: {
           type: "static_select",
           action_id: "quick_filter_input",
-          placeholder: { type: "plain_text", text: "Quick filter (optional)" },
+          placeholder: {
+            type: "plain_text",
+            text: "Quick filter (optional)"
+          },
           options: [
             {
               text: { type: "plain_text", text: "Today" },
