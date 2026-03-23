@@ -149,12 +149,15 @@ Deno.serve(async (req: Request) => {
 
         // ─── PRE‑CAP (CHECK-IN) ───
         if (callbackId === "precap_submit") {
-          const preCapRaw = values?.pre_cap_block?.pre_cap_input?.value || "";
-          console.log("Pre-CAP raw:", preCapRaw);
-          const preCapTasks = preCapRaw
-            .split("\n")
-            .map((s: string) => s.trim())
-            .filter(Boolean);
+          const preCapTasks = [];
+          for (const key in values) {
+            if (key.startsWith('task_') && key !== 'add_task') {
+              const value = values[key]?.task?.value;
+              if (value && value.trim()) {
+                preCapTasks.push(value.trim());
+              }
+            }
+          }
           console.log("Pre-CAP tasks:", preCapTasks);
 
           const existingLog = await getLog(userId, today);
@@ -179,17 +182,23 @@ Deno.serve(async (req: Request) => {
 
         // ─── POST‑CAP (CHECKOUT) ───
         if (callbackId === "postcap_submit") {
-          const postCapRaw = values?.post_cap_block?.post_cap_input?.value || "";
-          const postCapTasks = postCapRaw
-            .split("\n")
-            .map((s: string) => s.trim())
-            .filter(Boolean);
+          const existingLog = await getLog(userId, today);
+          const tasks = (existingLog?.pre_cap_tasks ?? []) as string[];
+          const statuses: { task: string; status: string }[] = [];
+          for (let i = 0; i < tasks.length; i++) {
+            const status = values[`task_${i}`]?.status?.selected_option?.value || "in_progress";
+            statuses.push({ task: tasks[i], status });
+          }
+          console.log("Task statuses:", statuses);
 
-          await completeTasks(userId, today, postCapTasks, "");
+          const completed = statuses.filter((s) => s.status === "completed").map((s) => s.task);
+          const statusMap = Object.fromEntries(statuses.map((s) => [s.task, s.status]));
+
+          await completeTasks(userId, today, completed, JSON.stringify(statusMap));
           await checkOut(userId, today, time);
 
-          const completedList = postCapTasks.length
-            ? postCapTasks.map((t: string) => `• ${t}`).join("\n")
+          const completedList = completed.length
+            ? completed.map((t: string) => `• ${t}`).join("\n")
             : "_No completed tasks recorded._";
 
           const postRes = await postMessage(
@@ -394,6 +403,7 @@ Deno.serve(async (req: Request) => {
         const triggerId = payload.trigger_id;
 
         console.log("🎯 ACTION:", actionId);
+        console.log("📦 Full block_actions payload:", JSON.stringify(payload, null, 2));
 
         switch (actionId) {
           case "home_check_in":
@@ -416,6 +426,102 @@ Deno.serve(async (req: Request) => {
           case "home_manager_report":
             await openModal(triggerId, managerReportModal());
             break;
+
+          case "add_task": {
+            console.log("🔧 ADD_TASK button clicked");
+            console.log("📦 Full block_actions payload:", JSON.stringify(payload, null, 2));
+            
+            const view = payload.view;
+            
+            if (!view || !view.id) {
+              console.error("❌ CRITICAL: No view.id in payload. This is the root issue.");
+              console.error("Available payload keys:", Object.keys(payload));
+              break;
+            }
+
+            console.log("✅ View found. ID:", view.id);
+
+            // Build new blocks array
+            const existingBlocks = view.blocks || [];
+            const taskBlocks = existingBlocks.filter((b: any) => b.type === "input" && b.block_id?.startsWith("task_"));
+            const nextTaskNum = taskBlocks.length + 1;
+
+            console.log(`📝 Current tasks: ${taskBlocks.length}, Adding Task ${nextTaskNum}`);
+
+            // Don't add more than 10 tasks
+            if (nextTaskNum > 10) {
+              console.log("⚠️ Maximum 10 tasks allowed");
+              break;
+            }
+
+            // Create new task block
+            const newTaskBlock = {
+              type: "input",
+              block_id: `task_${nextTaskNum}`,
+              label: { type: "plain_text", text: `Task ${nextTaskNum}` },
+              element: {
+                type: "plain_text_input",
+                action_id: "task",
+                placeholder: { type: "plain_text", text: `Enter task ${nextTaskNum}` },
+              },
+            };
+
+            // Find the "add_task" actions block
+            const actionsBlockIndex = existingBlocks.findIndex((b: any) => b.block_id === "add_task");
+            console.log("🎯 Actions block at index:", actionsBlockIndex);
+
+            // Insert new task block before the actions block
+            const newBlocks = [...existingBlocks];
+            if (actionsBlockIndex !== -1) {
+              newBlocks.splice(actionsBlockIndex, 0, newTaskBlock);
+            } else {
+              newBlocks.push(newTaskBlock);
+            }
+
+            console.log("📊 New blocks count:", newBlocks.length);
+
+            const viewUpdatePayload = {
+              view_id: view.id,
+              hash: view.hash,
+              view: {
+                type: "modal",
+                callback_id: view.callback_id,
+                title: view.title,
+                submit: view.submit,
+                close: view.close,
+                blocks: newBlocks,
+              },
+            };
+
+            console.log("📤 Calling views.update...");
+
+            try {
+              const response = await fetch("https://slack.com/api/views.update", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${Deno.env.get("SLACK_BOT_TOKEN")}`,
+                },
+                body: JSON.stringify(viewUpdatePayload),
+              });
+
+              const result = await response.json();
+              console.log("📥 views.update response:", JSON.stringify(result, null, 2));
+
+              if (!result.ok) {
+                console.error("❌ Slack API error:", result.error);
+                if (result.response_metadata?.messages) {
+                  console.error("Response metadata:", result.response_metadata.messages);
+                }
+              } else {
+                console.log("✅ Modal updated successfully!");
+              }
+            } catch (err) {
+              console.error("❌ Fetch error:", err);
+            }
+
+            break;
+          }
         }
 
         await publishHome(userId, await buildHomeTab(userId));

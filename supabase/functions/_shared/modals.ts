@@ -1,76 +1,62 @@
 ﻿// Modal definitions for Slack interactions
 
-export function preCapModal(existingLog?: any) {
-  const preCapValue = (existingLog?.pre_cap_tasks?.join("\n") || "").substring(0, 3000);
-
+// Pre-CAP modal: enter tasks with a plus button
+export function preCapModal(log: any) {
   return {
     type: "modal",
     callback_id: "precap_submit",
-    title: { type: "plain_text", text: "Check In — Pre‑CAP" },
+    title: { type: "plain_text", text: "Pre-CAP Check-in" },
     submit: { type: "plain_text", text: "Save" },
     close: { type: "plain_text", text: "Cancel" },
     blocks: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: "Enter the tasks you plan to tackle today. One task per line."
-        },
+        type: "input",
+        block_id: "task_1",
+        label: { type: "plain_text", text: "Task 1" },
+        element: { type: "plain_text_input", action_id: "task" },
       },
       {
-        type: "input",
-        block_id: "pre_cap_block",
-        element: {
-          type: "plain_text_input",
-          action_id: "pre_cap_input",
-          multiline: true,
-          placeholder: {
-            type: "plain_text",
-            text: "e.g. Fix bug #123\nReview PRs\nWrite docs"
+        type: "actions",
+        block_id: "add_task",
+        elements: [
+          {
+            type: "button",
+            text: { type: "plain_text", text: "➕ Add another task" },
+            action_id: "add_task",
           },
-          initial_value: preCapValue,
-        },
-        label: { type: "plain_text", text: "Pre‑CAP Tasks" },
+        ],
       },
     ],
   };
 }
 
-export function postCapModal(existingLog?: any) {
-  const completedValue = ((existingLog?.completed_tasks ?? []).join("\n") || "").substring(0, 3000);
-
+// Post-CAP modal: show tasks with status dropdowns
+export function postCapModal(log: any) {
+  const tasks = (log?.pre_cap_tasks ?? []) as string[];
   return {
     type: "modal",
     callback_id: "postcap_submit",
-    title: { type: "plain_text", text: "Check Out — Post‑CAP" },
-    submit: { type: "plain_text", text: "Save" },
+    title: { type: "plain_text", text: "Post-CAP Checkout" },
+    submit: { type: "plain_text", text: "Submit" },
     close: { type: "plain_text", text: "Cancel" },
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: "What did you actually complete today? Add each item on its own line."
-        },
+    blocks: tasks.map((task, idx) => ({
+      type: "section",
+      block_id: `task_${idx}`,
+      text: { type: "mrkdwn", text: `*${task}*` },
+      accessory: {
+        type: "static_select",
+        action_id: "status",
+        placeholder: { type: "plain_text", text: "Select status" },
+        options: [
+          { text: { type: "plain_text", text: "✅ Completed" }, value: "completed" },
+          { text: { type: "plain_text", text: "⏳ In Progress" }, value: "in_progress" },
+          { text: { type: "plain_text", text: "⚠️ Blocked" }, value: "blocked" },
+        ],
       },
-      {
-        type: "input",
-        block_id: "post_cap_block",
-        element: {
-          type: "plain_text_input",
-          action_id: "post_cap_input",
-          multiline: true,
-          placeholder: {
-            type: "plain_text",
-            text: "e.g. Released feature X\nFixed login bug"
-          },
-          initial_value: completedValue,
-        },
-        label: { type: "plain_text", text: "Post‑CAP Tasks" },
-      },
-    ],
+    })),
   };
 }
+
 
 export function managerReportModal() {
   const today = new Date().toISOString().split("T")[0];

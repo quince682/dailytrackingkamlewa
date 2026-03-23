@@ -91,8 +91,7 @@ serve(async (req: Request) => {
           return respond({ response_type: "ephemeral", text: "⚠️ You need to check in first (use /checkin) before checking out." });
         }
 
-        const modalPayload = postCapModal(existingLog);
-        const res = await openModal(modalPayload);
+        const res = await openModal(postCapModal(existingLog));
         if (!res.ok) {
           return respond({ response_type: "ephemeral", text: `⚠️ Could not open the checkout modal: ${res.error}` });
         }
@@ -104,9 +103,6 @@ serve(async (req: Request) => {
     }
 
     default:
-      return respond({
-        response_type: "ephemeral",
-        text: "Command not recognized.",
-      });
+      return respond({ response_type: "ephemeral", text: "Command not recognized." });
   }
 });
