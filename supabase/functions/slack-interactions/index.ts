@@ -182,32 +182,44 @@ Deno.serve(async (req: Request) => {
 
         // ─── POST‑CAP (CHECKOUT) ───
         if (callbackId === "postcap_submit") {
-          const existingLog = await getLog(userId, today);
-          const tasks = (existingLog?.pre_cap_tasks ?? []) as string[];
-          const statuses: { task: string; status: string }[] = [];
-          for (let i = 0; i < tasks.length; i++) {
-            const status = values[`task_${i}`]?.status?.selected_option?.value || "in_progress";
-            statuses.push({ task: tasks[i], status });
+          try {
+            const existingLog = await getLog(userId, today);
+            const tasks = (existingLog?.pre_cap_tasks ?? []) as string[];
+
+            if (!tasks || tasks.length === 0) {
+              await postMessage(userId, "⚠️ No Pre-CAP tasks found for today. Please check in first.");
+              return;
+            }
+
+            const statuses: { task: string; status: string }[] = [];
+            for (let i = 0; i < tasks.length; i++) {
+              const blockId = `task_${i}`;
+              const status = values[blockId]?.status?.selected_option?.value || "in_progress";
+              statuses.push({ task: tasks[i], status });
+            }
+            console.log("Task statuses:", statuses);
+
+            const completed = statuses.filter((s) => s.status === "completed").map((s) => s.task);
+            const statusMap = Object.fromEntries(statuses.map((s) => [s.task, s.status]));
+
+            await completeTasks(userId, today, completed, JSON.stringify(statusMap));
+            await checkOut(userId, today, time);
+
+            const completedList = completed.length
+              ? completed.map((t: string) => `• ${t}`).join("\n")
+              : "_No completed tasks recorded._";
+
+            const postRes = await postMessage(
+              userId,
+              `✅ Check-out done! Here are your completed tasks:\n${completedList}`
+            );
+            console.log("postMessage (check-out) response:", postRes);
+
+            await publishHome(userId, await buildHomeTab(userId));
+          } catch (err) {
+            console.error("Error in postcap_submit:", err);
+            await postMessage(userId, "⚠️ Error during checkout. Please try again.");
           }
-          console.log("Task statuses:", statuses);
-
-          const completed = statuses.filter((s) => s.status === "completed").map((s) => s.task);
-          const statusMap = Object.fromEntries(statuses.map((s) => [s.task, s.status]));
-
-          await completeTasks(userId, today, completed, JSON.stringify(statusMap));
-          await checkOut(userId, today, time);
-
-          const completedList = completed.length
-            ? completed.map((t: string) => `• ${t}`).join("\n")
-            : "_No completed tasks recorded._";
-
-          const postRes = await postMessage(
-            userId,
-            `✅ Check-out done! Here are your completed tasks:\n${completedList}`
-          );
-          console.log("postMessage (check-out) response:", postRes);
-
-          await publishHome(userId, await buildHomeTab(userId));
         }
 
         // ─── MANAGER REPORT ───

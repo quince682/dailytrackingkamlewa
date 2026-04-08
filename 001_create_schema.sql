@@ -63,6 +63,31 @@ INSERT INTO workspace_config (key, value) VALUES
   ('timezone', 'Africa/Douala');
 
 -- ──────────────────────────────────────────
+-- Slack users lookup table for readable names
+-- ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS slack_users (
+  user_id TEXT PRIMARY KEY,
+  username TEXT,
+  full_name TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION slack_users_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER slack_users_update_timestamp
+  BEFORE UPDATE ON slack_users
+  FOR EACH ROW
+  EXECUTE FUNCTION slack_users_updated_at();
+
+-- ──────────────────────────────────────────
 -- Helper view: today's summary for managers
 -- ──────────────────────────────────────────
 CREATE OR REPLACE VIEW daily_summary AS
@@ -76,6 +101,19 @@ SELECT
 FROM daily_logs
 GROUP BY date
 ORDER BY date DESC;
+
+-- ──────────────────────────────────────────
+-- View joining daily_logs and slack_users for readable check-ins
+-- ──────────────────────────────────────────
+CREATE OR REPLACE VIEW daily_logs_with_user AS
+SELECT
+  dl.*,
+  su.username,
+  su.full_name,
+  su.email,
+  COALESCE(su.full_name, su.username, dl.user_id) AS display_name
+FROM daily_logs dl
+LEFT JOIN slack_users su ON dl.user_id = su.user_id;
 
 -- ──────────────────────────────────────────
 -- RPC: Check in (upsert)

@@ -1,6 +1,6 @@
 import { serve } from "./deps.ts";
 import { getToday, getCurrentTime } from "../_shared/slack.ts";
-import { getLog, checkIn } from "../_shared/database.ts";
+import { getLog, getLatestLog, checkIn, upsertSlackUserFromSlackId } from "../_shared/database.ts";
 import { preCapModal, postCapModal } from "../_shared/modals.ts";
 
 declare const Deno: any;
@@ -61,6 +61,7 @@ serve(async (req: Request) => {
   switch (command) {
     case "/checkin": {
       try {
+        await upsertSlackUserFromSlackId(userId);
         await checkIn(userId, today, getCurrentTime());
         const log = await getLog(userId, today);
         const res = await openModal(preCapModal(log));
@@ -86,9 +87,23 @@ serve(async (req: Request) => {
 
     case "/checkout": {
       try {
+        await upsertSlackUserFromSlackId(userId);
         const existingLog = await getLog(userId, today);
         if (!existingLog) {
+          const latestLog = await getLatestLog(userId);
+          if (latestLog) {
+            return respond({
+              response_type: "ephemeral",
+              text: `⚠️ I couldn't find a check-in for today (${today}). Your last check-in was on ${latestLog.date} with status ${latestLog.status}. Use /checkin again for today.`,
+            });
+          }
+
           return respond({ response_type: "ephemeral", text: "⚠️ You need to check in first (use /checkin) before checking out." });
+        }
+
+        const tasks = (existingLog?.pre_cap_tasks ?? []) as string[];
+        if (tasks.length === 0) {
+          return respond({ response_type: "ephemeral", text: "⚠️ You don't have any Pre-CAP tasks to check out. Use /checkin to set tasks first." });
         }
 
         const res = await openModal(postCapModal(existingLog));

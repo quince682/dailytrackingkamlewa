@@ -163,11 +163,16 @@ export function userLogSummaryBlocks(log: any, includeHeader = true): unknown[] 
   const blocks: unknown[] = [];
 
   if (includeHeader) {
+    const displayName = log.display_name || log.full_name || log.username || log.user_id;
+    const userText = log.display_name 
+      ? `*${displayName}* (<@${log.user_id}>) — ${STATUS_LABEL[log.status] || log.status}`
+      : `*<@${log.user_id}>* — ${STATUS_LABEL[log.status] || log.status}`;
+    
     blocks.push({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `${STATUS_EMOJI[log.status] || "⚪"} *<@${log.user_id}>* — ${STATUS_LABEL[log.status] || log.status}`,
+        text: `${STATUS_EMOJI[log.status] || "⚪"} ${userText}`,
       },
     });
   }

@@ -33,17 +33,22 @@ export function preCapModal(log: any) {
 // Post-CAP modal: show tasks with status dropdowns
 export function postCapModal(log: any) {
   const tasks = (log?.pre_cap_tasks ?? []) as string[];
-  return {
-    type: "modal",
-    callback_id: "postcap_submit",
-    title: { type: "plain_text", text: "Post-CAP Checkout" },
-    submit: { type: "plain_text", text: "Submit" },
-    close: { type: "plain_text", text: "Cancel" },
-    blocks: tasks.map((task, idx) => ({
+  const blocks: any[] = [
+    {
       type: "section",
-      block_id: `task_${idx}`,
-      text: { type: "mrkdwn", text: `*${task}*` },
-      accessory: {
+      text: {
+        type: "mrkdwn",
+        text: "*Select the status for each task:*"
+      }
+    }
+  ];
+
+  for (let i = 0; i < tasks.length; i++) {
+    blocks.push({
+      type: "input",
+      block_id: `task_${i}`,
+      label: { type: "plain_text", text: tasks[i] },
+      element: {
         type: "static_select",
         action_id: "status",
         placeholder: { type: "plain_text", text: "Select status" },
@@ -53,7 +58,16 @@ export function postCapModal(log: any) {
           { text: { type: "plain_text", text: "⚠️ Blocked" }, value: "blocked" },
         ],
       },
-    })),
+    });
+  }
+
+  return {
+    type: "modal",
+    callback_id: "postcap_submit",
+    title: { type: "plain_text", text: "Post-CAP Checkout" },
+    submit: { type: "plain_text", text: "Submit" },
+    close: { type: "plain_text", text: "Cancel" },
+    blocks,
   };
 }
 
